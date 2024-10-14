@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractal Tree Generator</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: 20px auto;
+        }
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        label, input, button, select {
+            margin: 10px;
+            padding: 5px;
+        }
+        button, select {
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .slider-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+        .slider-container label {
+            margin: 0;
+        }
+        .slider-container input {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="fractalCanvas" width="800" height="600"></canvas>
+
+<div class="controls">
+    <label for="iterations">Iterations: </label>
+    <input type="number" id="iterations" value="8" style="width: 60px;">
+    
+    <label for="angle">Branching Angle: </label>
+    <input type="number" id="angle" value="30" style="width: 60px;">
+    
+    <label for="fractalType">Fractal Type: </label>
+    <select id="fractalType">
+        <option value="1">Variant 1: Two angled + Straight</option>
+        <option value="2">Variant 2: One straight + Two angled</option>
+        <option value="3">Variant 3: Alternating angled</option>
+        <option value="4">Variant 4: Symmetric mirrored</option>
+        <option value="5">Variant 5: Random angled</option>
+    </select>
+    
+    <button onclick="drawFractal()">Draw Tree</button>
+    
+    <div class="slider-container">
+        <label for="baseThickness">Base Thickness: </label>
+        <input type="range" id="baseThickness" min="1" max="20" value="10">
+        
+        <label for="thicknessVariation">Thickness Variation: </label>
+        <input type="range" id="thicknessVariation" min="0" max="100" value="100">
+    </div>
+
+    <!-- Animation Controls -->
+    <label for="animationType">Animation Type: </label>
+    <select id="animationType">
+        <option value="linear">Linear</option>
+        <option value="bezier">Bezier</option>
+    </select>
+    
+    <label for="animationDuration">Animation Duration (sec): </label>
+    <input type="range" id="animationDuration" min="2" max="300" value="60">
+    <span id="durationDisplay">60</span> seconds
+    
+    <button onclick="startAnimation()">Animate</button>
+    <button onclick="exportAnimation()">Export Animation as PNG ZIP</button>
+    <button onclick="exportSVG()">Export as SVG</button>
+</div>
+
+<script>
+// Update animation duration display on input
+document.getElementById('animationDuration').addEventListener('input', function() {
+    document.getElementById('durationDisplay').innerText = this.value;
+});
+
+// Function to draw fractal tree on canvas and build SVG string for export
+function drawFractal(branchingAngle = null) {
+    const canvas = document.getElementById('fractalCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Clear previous tree
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const iterations = parseInt(document.getElementById('iterations').value);
+    const angleInput = branchingAngle === null ? parseFloat(document.getElementById('angle').value) : branchingAngle;
+    const fractalType = document.getElementById('fractalType').value;
+    const baseThickness = parseFloat(document.getElementById('baseThickness').value);
+    const thicknessVariation = parseFloat(document.getElementById('thicknessVariation').value) / 100;
+
+    const startX = canvas.width / 2;
+    const startY = canvas.height - 50; // Bottom of canvas
+    const startLength = 120; // Length of initial trunk
+    const startAngle = -90;  // Upward direction
+
+    // Initialize SVG string
+    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">`;
+
+    // Recursive function to draw branches based on the selected fractal type
+    function drawBranch(x, y, length, angle, depth) {
+        if (depth === 0) return;
+
+        // Calculate end point of branch
+        const xEnd = x + length * Math.cos(angle * Math.PI / 180);
+        const yEnd = y + length * Math.sin(angle * Math.PI / 180);
+
+        // Calculate line thickness
+        const currentThickness = baseThickness * (1 - thicknessVariation + thicknessVariation * (depth / iterations));
+
+        // Draw branch line on canvas
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(xEnd, yEnd);
+        ctx.strokeStyle = 'brown';
+        ctx.lineWidth = currentThickness;
+        ctx.stroke();
+
+        // Append to SVG string
+        svgContent += `<line x1="${x}" y1="${y}" x2="${xEnd}" y2="${yEnd}" stroke="brown" stroke-width="${currentThickness}" />`;
+
+        // Recursive calls based on fractal type
+        switch (fractalType) {
+            case '1': // Variant 1: Two angled branches and a straight branch
+                drawBranch(xEnd, yEnd, length * 0.67, angle - angleInput, depth - 1);
+                drawBranch(xEnd, yEnd, length * 0.67, angle + angleInput, depth - 1);
+                drawBranch(xEnd, yEnd, length * 0.67, angle, depth - 1);
+                break;
+            case '2': // Variant 2: One straight branch followed by two angled branches
+                if (depth % 2 === 0) {
+                    drawBranch(xEnd, yEnd, length * 0.67, angle - angleInput, depth - 1);
+                    drawBranch(xEnd, yEnd, length * 0.67, angle + angleInput, depth - 1);
+                } else {
+                    drawBranch(xEnd, yEnd, length * 0.67, angle, depth - 1);
+                }
+                break;
+            case '3': // Variant 3: Alternating angled branches
+                if (depth % 2 === 0) {
+                    drawBranch(xEnd, yEnd, length * 0.67, angle + angleInput, depth - 1);
+                } else {
+                    drawBranch(xEnd, yEnd, length * 0.67, angle - angleInput, depth - 1);
+                }
+                break;
+            case '4': // Variant 4: Symmetric mirrored branches
+                drawBranch(xEnd, yEnd, length * 0.67, angle - angleInput, depth - 1);
+                drawBranch(xEnd, yEnd, length * 0.67, angle + angleInput, depth - 1);
+                break;
+            case '5': // Variant 5: Randomly angled branches
+                const randomAngle1 = angleInput * (Math.random() - 0.5) * 2;
+                const randomAngle2 = angleInput * (Math.random() - 0.5) * 2;
+                drawBranch(xEnd, yEnd, length * 0.67, angle + randomAngle1, depth - 1);
+                drawBranch(xEnd, yEnd, length * 0.67, angle + randomAngle2, depth - 1);
+                break;
+        }
+    }
+
+    // Start drawing from the trunk
+    drawBranch(startX, startY, startLength, startAngle, iterations);
+
+    // Close SVG string
+    svgContent += '</svg>';
+
+    // Save SVG content globally for exporting
+    window.svgContent = svgContent;
+}
+
+// Function to animate the fractal by changing the branching angle from X to X+360
+function startAnimation() {
+    const angleElement = document.getElementById('angle');
+    const initialAngle = parseFloat(angleElement.value);
+    const duration = parseInt(document.getElementById('animationDuration').value) * 1000; // In milliseconds
+    const animationType = document.getElementById('animationType').value;
+
+    const startTime = performance.now();
+
+    function animateFractal(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1); // Progress from 0 to 1
+
+        // Apply easing for bezier animation type
+        let easingProgress;
+        if (animationType === 'linear') {
+            easingProgress = progress;
+        } else if (animationType === 'bezier') {
+            easingProgress = cubicBezier(progress, 0.42, 0, 0.58, 1); // Simple ease-in-out bezier curve
+        }
+
+        const currentAngle = initialAngle + easingProgress * 360;
+        drawFractal(currentAngle);
+
+        if (progress < 1) {
+            requestAnimationFrame(animateFractal);
+        } else {
+            angleElement.value = initialAngle; // Reset angle after animation
+        }
+    }
+
+    requestAnimationFrame(animateFractal);
+}
+
+// Function to export animation as PNG frames and compress into a ZIP file
+async function exportAnimation() {
+    const JSZip = window.JSZip; // Assuming JSZip library is available
+    const zip = new JSZip();
+    const canvas = document.getElementById('fractalCanvas');
+    const angleElement = document.getElementById('angle');
+    const initialAngle = parseFloat(angleElement.value);
+    const duration = parseInt(document.getElementById('animationDuration').value) * 1000;
+    const frameRate = 30; // Frames per second
+    const totalFrames = Math.floor((duration / 1000) * frameRate);
+    const animationType = document.getElementById('animationType').value;
+
+    let frameNumber = 1;
+
+    for (let i = 0; i < totalFrames; i++) {
+        const progress = i / totalFrames;
+
+        // Apply easing for bezier animation type
+        let easingProgress;
+        if (animationType === 'linear') {
+            easingProgress = progress;
+        } else if (animationType === 'bezier') {
+            easingProgress = cubicBezier(progress, 0.42, 0, 0.58, 1); // Simple ease-in-out bezier curve
+        }
+
+        const currentAngle = initialAngle + easingProgress * 360;
+        drawFractal(currentAngle);
+
+        // Convert canvas to blob and add to ZIP
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        zip.file(`Frame.${frameNumber}.png`, blob);
+        frameNumber++;
+    }
+
+    // Generate ZIP and download
+    zip.generateAsync({ type: 'blob' }).then(content => {
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(content);
+        a.href = url;
+        a.download = 'fractal_animation.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+}
+
+// Function to export the generated fractal as an SVG file
+function exportSVG() {
+    const svgBlob = new Blob([window.svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fractal_tree.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Cubic bezier easing function (p0, p1, p2, p3)
+function cubicBezier(t, p0, p1, p2, p3) {
+    const u = 1 - t;
+    return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t;
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+</body>
+</html>
